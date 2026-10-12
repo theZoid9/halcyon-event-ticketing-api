@@ -1,0 +1,85 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: halcyon
+          POSTGRES_USER: halcyon
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U halcyon -d halcyon"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DJANGO_SECRET_KEY: ci-only-secret-0123456789abcdefghijklmnopqrstuvwxyz-0123456789
+      POSTGRES_DB: halcyon
+      POSTGRES_USER: halcyon
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_HOST: 127.0.0.1
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: black --check . && flake8 .
+      - run: python manage.py check
+      - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py migrate --noinput
+      - run: python manage.py collectstatic --noinput
+      - run: python manage.py spectacular --file docs/openapi.yaml --validate --fail-on-warn
+      - run: git diff --exit-code -- docs/openapi.yaml
+      - run: pytest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-and-openapi
+          path: |
+            coverage.xml
+            docs/openapi.yaml
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: halcyon-service:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start stack and verify container health
+        run: |
+          cp .env.example .env
+          docker compose up -d --no-build
+          for attempt in $(seq 1 45); do
+            if curl --fail http://127.0.0.1:8000/health/; then
+              curl --fail http://127.0.0.1:8000/api/schema/ > /dev/null
+              curl --fail http://127.0.0.1:8000/api/docs/ > /dev/null
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+      - if: always()
+        run: docker compose down --volumes
