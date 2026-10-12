@@ -2,3 +2,5 @@
 max-line-length = 100
 extend-ignore = E203
 exclude = .git,__pycache__,.venv,staticfiles
+per-file-ignores =
+    __init__.py:W391
