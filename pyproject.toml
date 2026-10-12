@@ -1,0 +1,16 @@
+[tool.black]
+line-length = 100
+target-version = ['py312']
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+addopts = "--cov=core --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
+
+[tool.coverage.run]
+omit = ["*/migrations/*"]
+
+[tool.coverage.report]
+show_missing = true
+omit = ["*/migrations/*"]

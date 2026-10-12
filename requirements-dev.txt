@@ -1,0 +1,20 @@
+# Fully pinned direct and transitive dependencies (Python 3.12).
+-r requirements.txt
+black==26.10.1
+click==8.5.0
+colorama==0.4.6
+coverage==7.16.2
+flake8==7.4.1
+iniconfig==2.3.1
+mccabe==0.7.0
+mypy-extensions==1.1.0
+pathspec==1.1.1
+platformdirs==4.13.0
+pluggy==1.6.0
+pycodestyle==2.15.0
+pyflakes==4.0.3
+pygments==2.21.0
+pytest==9.1.1
+pytest-cov==7.1.0
+pytest-django==4.14.0
+pytokens==0.4.1
