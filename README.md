@@ -1,70 +1,36 @@
-# Halcyon Inventory & Supply Chain Fulfilment API
+# Halcyon Event Ticketing & Seat Reservation API
 
-**Ticket HS-2026-0872 · Odd candidate-ID assignment**
+**Ticket HS-2026-0872 · Even candidate-ID assignment**
 
-[Repository](https://github.com/theZoid9/halcyon-inventory-api) ·
-[CI runs](https://github.com/theZoid9/halcyon-inventory-api/actions) ·
-[OpenAPI file](docs/openapi.yaml)
+A Django REST API for venues, physical seats, events, event-specific seat prices, and attendee reservations. Standard users browse published events and reserve their own seats. Administrators manage the catalogue and users. PostgreSQL row locks prevent double-booking, and a 15-minute hold expires before another buyer claims a seat.
 
-A Django REST service for suppliers, products, warehouse inventory, and customer fulfilment orders.
-Standard users manage their own orders; administrators maintain inventory and fulfil allocations.
-PostgreSQL transactions prevent overselling and ensure multi-item reservations succeed or fail together.
-
-## Features
-
-- Django 5.2 LTS, Django REST Framework, PostgreSQL configuration, and pinned dependencies.
-- Token login/logout and administrator-only user CRUD, including password validation and hashing.
-- Standard JSON errors and generated request IDs.
-- Database-aware `/health/`, with HTTP 503 when the database is unavailable.
-- OpenAPI schema and Swagger UI with bundled static assets.
-- Multi-stage non-root Docker image, PostgreSQL Compose stack, and one-shot migration service.
-- GitHub Actions lint, migration and schema checks, PostgreSQL tests with an 80% coverage gate,
-  followed by an image build and Compose smoke test.
-- Six domain models plus Django users, foreign keys, two many-to-many relationships, database
-  constraints, and committed migrations.
-- Draft order CRUD, allocation, cancellation, administrator fulfilment, and immutable price snapshots.
-
-## Data model and consistency
+## Architecture and data model
 
 ```mermaid
 erDiagram
-    USER ||--o{ ORDER : owns
-    WAREHOUSE ||--o{ ORDER : fulfils
-    WAREHOUSE ||--o{ STOCK : stores
-    PRODUCT ||--o{ STOCK : stocked_as
-    SUPPLIER }o--o{ PRODUCT : supplies
-    ORDER ||--|{ ORDER_LINE : contains
-    PRODUCT ||--o{ ORDER_LINE : ordered_as
+    VENUE ||--o{ SEAT : contains
+    VENUE ||--o{ EVENT : hosts
+    EVENT ||--o{ EVENT_SEAT : offers
+    SEAT ||--o{ EVENT_SEAT : reused_at
+    USER ||--o{ RESERVATION : owns
+    EVENT ||--o{ RESERVATION : receives
+    RESERVATION ||--|{ RESERVATION_SEAT : contains
+    EVENT_SEAT ||--o{ RESERVATION_SEAT : recorded_in
 ```
 
-`Order.products` is an explicit many-to-many relationship through `OrderLine`; products also have
-a many-to-many supplier catalogue. Each stock row represents one product in one warehouse.
-Users, warehouses, and products referenced by transactions are protected from deletion.
+`Event.seats` is many-to-many through `EventSeat`: the same physical seat may be offered at different events, each with its own price. `Reservation.seats` is many-to-many through `ReservationSeat`, which captures the ticket price at reservation time. An `EventSeat.reservation` pointer records the *current* claimant; the reservation-seat join rows preserve history after cancellation or expiry. Database constraints prevent duplicate physical seat labels, duplicate event/seat pairs, duplicate seats within one reservation, negative prices, and events ending before they start.
 
-An order starts as `draft`. Its owner may edit its warehouse, reference, and items, or delete it.
-`POST allocate/` changes it to `allocated` and increases stock `reserved`; available stock is
-`quantity - reserved`. Administrators use `POST fulfil/` to consume both quantity and reserved stock.
-`POST cancel/` cancels a draft or releases an allocation. Fulfilled/cancelled orders are retained and
-cannot be edited or deleted. Repeating an action that already reached its target state is a no-op;
-invalid transitions return 409. Order creation is not idempotent: clients must not blindly retry a
-timed-out POST. A production client requiring automatic retries should add an idempotency-key contract.
+### Reservation rules
 
-Order mutations lock the order row, then its warehouse, then stock rows in product-ID order.
-Stock creation, quantity updates, and deletion acquire that same warehouse lock. This deliberately
-serializes writes within each warehouse, including changes to which stock rows exist; different
-warehouses may proceed concurrently. Transactions roll back every reservation if any item is short.
-PostgreSQL is required for these concurrency guarantees; SQLite is only a lightweight test option.
-Direct SQL/ORM stock mutations bypass this service contract and are unsupported operational writes.
+An administrator creates a draft event, adds event seats, and publishes it. A user selects 1–8 distinct event-seat IDs for a published future event. A successful POST creates a `held` reservation for 15 minutes. `POST confirm/` confirms the hold; it does **not** charge a payment method. A hold can be edited, deleted, or cancelled. A confirmed reservation can be cancelled before the event starts; cancellation releases its seats. Cancelled and expired reservations cannot be confirmed. Event cancellation cancels active reservations and releases all claims.
 
-Line prices are copied from the product when a draft line is created or replaced. Subsequent price
-changes do not change existing lines. Supplying `items` on PUT/PATCH replaces the whole item list and
-captures current prices; a reference-only PATCH preserves prices. Orders accept 1–100 distinct products
-with positive integer quantities. Prices use decimal arithmetic in one deployment-wide currency;
-tax, shipping, payments, purchasing, returns, and inter-warehouse transfers are outside this ticket.
+The service locks the event row before reading or changing reservations and event seats. That serializes claims for one event while allowing different events to proceed independently. Every multi-seat change is atomic: if one seat is unavailable, no seats are claimed. Expired holds are released when an action touches the event; a production scheduler may additionally call an expiry job to update idle events promptly. Availability is checked from the event seat's `is_available`, physical seat's `is_active`, and current claim. The `is_claimed` API field is a snapshot and may change immediately after it is read; clients must handle a 409 conflict on reservation creation.
 
-## Local startup
+This ticket does not integrate payments, refunds, admission scanning, taxes, or email delivery. Confirmation represents a booking decision only. A reservation-creation POST is not idempotent; clients should not blindly retry a timed-out POST without an idempotency-key contract.
 
-Requires Docker Engine with Docker Compose v2.
+## Local startup with Docker Compose
+
+Requires Docker Engine with Compose v2. From this repository directory:
 
 ```sh
 cp .env.example .env
@@ -72,164 +38,113 @@ docker compose up --build -d
 docker compose exec app python manage.py createsuperuser
 ```
 
-In PowerShell, use `Copy-Item .env.example .env` for the first command.
-Local example secrets are deliberately public placeholders. Replace both secrets before sharing
-or deploying an environment. The database is on the private Compose network; only the app is
-bound to localhost. Migrations run once before the app starts, not independently in each worker.
+On Windows PowerShell, use `Copy-Item .env.example .env` for the first command. The `.env.example` secrets are local placeholders: replace the Django secret and database password before sharing or deploying an environment. PostgreSQL data lives in a named volume. The database is private to the Compose network, and the app binds only to localhost. A one-shot migration service runs before the app starts. `docker compose down` keeps database data; `docker compose down --volumes` deletes it.
 
 - Health: <http://localhost:8000/health/>
 - Swagger UI: <http://localhost:8000/api/docs/>
-- OpenAPI: <http://localhost:8000/api/schema/>
+- OpenAPI: <http://localhost:8000/api/schema/> and `docs/openapi.yaml`
 
 ```sh
+docker compose ps
 docker compose logs -f app
 docker compose down
 ```
 
-`docker compose down` keeps database data. Adding `--volumes` deletes it.
+## Authentication and API permissions
 
-## Authentication and user administration
+Log in with the superuser created above. Send `Authorization: Token <token>` on every protected request. Logging out deletes the token; password changes and user deactivation also revoke it. There is no public signup or client-controlled role escalation. Administrator means Django `is_staff=true`.
 
-Use the administrator created above to sign in. The following examples use a POSIX shell;
-on Windows use `curl.exe` and the equivalent PowerShell variable syntax.
+| Resource | Routes | Standard user | Administrator |
+| --- | --- | --- | --- |
+| Users | `/api/users/`, `/api/users/{id}/` | No access | Full CRUD |
+| Venues | `/api/venues/`, `/api/venues/{id}/` | Read | Full CRUD |
+| Physical seats | `/api/seats/`, `/api/seats/{id}/` | Read | Full CRUD |
+| Events | `/api/events/`, `/api/events/{id}/` | Read published events | Full CRUD |
+| Event seats | `/api/event-seats/`, `/api/event-seats/{id}/` | Read published-event seats | Full CRUD, subject to active claims and history |
+| Reservations | `/api/reservations/`, `/api/reservations/{id}/` | Own reservations; edit/delete active holds | All reservations; edit/delete active holds |
+| Confirm/cancel | `/api/reservations/{id}/confirm/`, `/cancel/` | Own reservations | Any reservation |
+| Login/logout | `/api/auth/login/`, `/api/auth/logout/` | Public login; token required for logout | Same |
+| Monitoring/docs | `/health/`, `/api/schema/`, `/api/docs/` | Public | Public |
+
+Collections use GET/POST; detail routes use GET/PUT/PATCH/DELETE. Actions use POST with an empty body. List responses have page-number pagination (50 per page). Use `/api/event-seats/?event=1` and `/api/reservations/?status=held` to filter. Another person's reservation returns 404 to a standard user. Owner, status, expiry, ticket price, total, and claim state are server-controlled; attempts to set them return 400. A seat already claimed by another reservation produces 409.
+
+### Example request sequence
+
+These are POSIX-shell cURL examples. On PowerShell, use `curl.exe` and PowerShell variable syntax. Replace IDs with those returned by your own requests.
 
 ```sh
 curl -X POST http://localhost:8000/api/auth/login/ \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"YOUR_ADMIN_PASSWORD"}'
-
-export TOKEN='TOKEN_FROM_LOGIN'
-curl http://localhost:8000/api/users/ -H "Authorization: Token $TOKEN"
+export ADMIN_TOKEN='TOKEN_FROM_LOGIN'
 
 curl -X POST http://localhost:8000/api/users/ \
-  -H "Authorization: Token $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"username":"alice","email":"alice@example.com","password":"Replace-with-a-strong-password-123!","is_staff":false}'
+  -H "Authorization: Token $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"Replace-with-a-strong-password-123!","is_staff":false}'
+# Log in as alice and save the returned token as USER_TOKEN.
+export USER_TOKEN='ALICE_TOKEN'
 
-curl -X PATCH http://localhost:8000/api/users/2/ \
-  -H "Authorization: Token $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"email":"alice.updated@example.com"}'
+curl -X POST http://localhost:8000/api/venues/ \
+  -H "Authorization: Token $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Grand Hall","city":"Johannesburg","address":"1 Main Road"}'
+curl -X POST http://localhost:8000/api/seats/ \
+  -H "Authorization: Token $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"venue":1,"section":"A","row":"1","number":1}'
+curl -X POST http://localhost:8000/api/events/ \
+  -H "Authorization: Token $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"venue":1,"title":"Concert","starts_at":"2027-12-01T18:00:00Z","ends_at":"2027-12-01T20:00:00Z"}'
+curl -X POST http://localhost:8000/api/event-seats/ \
+  -H "Authorization: Token $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"event":1,"seat":1,"price":"50.00"}'
+curl -X PATCH http://localhost:8000/api/events/1/ \
+  -H "Authorization: Token $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"status":"published"}'
 
-curl -X POST http://localhost:8000/api/auth/logout/ -H "Authorization: Token $TOKEN"
+curl -X POST http://localhost:8000/api/reservations/ \
+  -H "Authorization: Token $USER_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"event":1,"seats":[1],"reference":"MY-BOOKING"}'
+curl -X POST http://localhost:8000/api/reservations/1/confirm/ \
+  -H "Authorization: Token $USER_TOKEN"
+curl http://localhost:8000/api/reservations/1/ \
+  -H "Authorization: Token $USER_TOKEN"
 ```
 
-Administrators (`is_staff=true`) can list, create, retrieve, PUT/PATCH, and delete users at
-`/api/users/` and `/api/users/{id}/`. Standard users cannot access these endpoints.
-No public signup or client-supplied privilege escalation endpoint is exposed.
-Passwords are write-only. Password changes revoke existing tokens. Inactive users cannot log in.
-Tokens remain valid until revoked; logout revokes the user's current token for all clients.
-Use HTTPS for all non-local traffic. DRF's process-local login throttle is a basic abuse control;
-deploy a shared cache and ingress rate limiting for multiple workers/replicas.
-
-## API and permissions
-
-All domain endpoints require `Authorization: Token <token>`. List endpoints use page-number
-pagination (`?page=2`) with 50 rows per page. Orders support `?status=draft|allocated|fulfilled|cancelled`.
-Another user's order returns 404 to standard users, including for mutation attempts.
-
-| Resource | Routes | Standard user | Administrator |
-| --- | --- | --- | --- |
-| Users | `/api/users/`, `/api/users/{id}/` | No access | Full CRUD |
-| Suppliers | `/api/suppliers/`, `/api/suppliers/{id}/` | List/retrieve | Full CRUD |
-| Products | `/api/products/`, `/api/products/{id}/` | List/retrieve | Full CRUD |
-| Warehouses | `/api/warehouses/`, `/api/warehouses/{id}/` | List/retrieve | Full CRUD |
-| Stock | `/api/stock/`, `/api/stock/{id}/` | List/retrieve | Full CRUD; reservations are protected |
-| Orders | `/api/orders/`, `/api/orders/{id}/` | Own orders; edit/delete drafts | All orders; edit/delete drafts |
-| Order lines | Nested `items` in order create/retrieve/PUT/PATCH/delete | Through own draft order | Through any draft order |
-| Allocate/cancel | `/api/orders/{id}/allocate/`, `/cancel/` | Own orders | Any order |
-| Fulfil | `/api/orders/{id}/fulfil/` | No access | Allocated orders only |
-| Login/logout | `/api/auth/login/`, `/api/auth/logout/` | Login is public; logout requires token | Same |
-| Monitoring/docs | `/health/`, `/api/schema/`, `/api/docs/` | Public | Public |
-
-Collection CRUD uses GET/POST; detail CRUD uses GET/PUT/PATCH/DELETE. State actions use POST with an
-empty body. Owner, status, reserved stock, prices on order lines, totals, IDs, and timestamps are
-server-controlled; attempts to write these domain fields return 400. Stock identity is immutable:
-create a separate row for a different product or warehouse.
-
-### End-to-end inventory example
-
-Use the administrator's token as `ADMIN_TOKEN` and log in as the created standard user for
-`USER_TOKEN`. Examples assume a fresh database where the returned warehouse/product IDs are 1;
-otherwise replace IDs with the values returned by each POST.
-
-```sh
-export ADMIN_TOKEN='ADMIN_TOKEN_FROM_LOGIN'
-export USER_TOKEN='STANDARD_USER_TOKEN_FROM_LOGIN'
-
-curl -X POST http://localhost:8000/api/suppliers/ \
-  -H "Authorization: Token $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"name":"Acme Supplies","email":"orders@example.com"}'
-
-curl -X POST http://localhost:8000/api/warehouses/ \
-  -H "Authorization: Token $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"code":"JHB","name":"Johannesburg","address":"1 Example Road"}'
-
-curl -X POST http://localhost:8000/api/products/ \
-  -H "Authorization: Token $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"sku":"WIDGET-001","name":"Widget","unit_price":"12.50","suppliers":[1]}'
-
-curl -X POST http://localhost:8000/api/stock/ \
-  -H "Authorization: Token $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"warehouse":1,"product":1,"quantity":100}'
-
-curl -X POST http://localhost:8000/api/orders/ \
-  -H "Authorization: Token $USER_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"warehouse":1,"reference":"CLIENT-001","items":[{"product":1,"quantity":3}]}'
-
-curl -X PATCH http://localhost:8000/api/orders/1/ \
-  -H "Authorization: Token $USER_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"reference":"CLIENT-001-APPROVED"}'
-
-curl -X POST http://localhost:8000/api/orders/1/allocate/ -H "Authorization: Token $USER_TOKEN"
-curl -X POST http://localhost:8000/api/orders/1/fulfil/ -H "Authorization: Token $ADMIN_TOKEN"
-curl http://localhost:8000/api/stock/1/ -H "Authorization: Token $USER_TOKEN"
-# quantity=97, reserved=0, available=97
-
-# For another unfulfilled order: cancel an allocation or delete a draft.
-curl -X POST http://localhost:8000/api/orders/2/cancel/ -H "Authorization: Token $USER_TOKEN"
-curl -X DELETE http://localhost:8000/api/orders/3/ -H "Authorization: Token $USER_TOKEN"
-```
+The example event date must be in the future when you run it. Confirmation does not process a payment. To release the seat before the event, POST to `/api/reservations/1/cancel/`.
 
 ## Index choices
 
-| Index / constraint | Why it exists |
+| Index or constraint | Reason |
 | --- | --- |
-| Unique `Product.sku`, `Warehouse.code`, `Supplier.name` | Enforces catalogue identity and supports exact lookups without duplicate indexes. Codes are uppercase and validated. |
-| Unique stock `(warehouse_id, product_id)` | Prevents duplicate balances and supports the warehouse/product lookup used while reserving inventory. |
-| Unique order line `(order_id, product_id)` | Prevents repeated products within one order and supports loading an order's items. |
-| Order `(owner_id, created_at DESC, id DESC)` | Supports the standard user's order feed with deterministic newest-first pagination. |
-| Order `(status, created_at DESC, id DESC)` | Supports the administrator's status-filtered fulfilment queue. |
-| Django's FK and many-to-many indexes | Support joins, ownership checks, relationship traversal, and protected deletion checks. |
+| Unique `(venue_id, section, row, number)` on Seat | Prevents duplicate physical seat labels and supports seat lookup within a venue. |
+| Unique `(event_id, seat_id)` on EventSeat | Prevents listing the same seat twice for one event and supports event seat retrieval. |
+| Unique `(reservation_id, event_seat_id)` on ReservationSeat | Prevents duplicate ticket lines within a reservation. |
+| Event `(status, starts_at, id)` | Supports published-event browsing in schedule order. |
+| Reservation `(owner_id, created_at DESC, id DESC)` | Supports a user's newest-first reservation feed. |
+| Reservation `(event_id, status, hold_expires_at)` | Finds expired holds for an event efficiently. |
+| Django foreign-key indexes | Support joins, ownership checks, and protected relationship checks. |
 
-No standalone index is added to low-cardinality `is_active` or `status`. The status composite index
-also provides useful ordering for filtered queues. PostgreSQL check constraints enforce positive
-prices, positive order-line quantities, valid order states, and `0 <= reserved <= quantity`.
-The small API does not offer arbitrary substring search; indexes should be re-evaluated using
-`EXPLAIN (ANALYZE, BUFFERS)` with representative production data before adding more.
+The current claim is a single foreign key on EventSeat, so one event seat has at most one claimant. PostgreSQL row locks around the event prevent concurrent claims from replacing one another. Indexes should be revisited with production query plans and data volumes.
 
-## Error contract
+## Error and health contracts
+
+Errors use one JSON shape:
 
 ```json
 {
   "error": {
-    "code": "validation_error",
-    "message": "Request validation failed.",
-    "details": {"username": ["This field is required."]},
+    "code": "conflict",
+    "message": "Event seat 1 is unavailable.",
+    "details": {"detail": "Event seat 1 is unavailable."},
     "request_id": "server-generated-uuid"
   }
 }
 ```
 
-The same request ID is returned in `X-Request-ID`. Unexpected exceptions are logged server-side
-and produce a generic 500 response. Uniqueness and protected-relationship conflicts return 409.
-Health is a monitoring contract: it returns `status`, `database`, and `uptime_seconds` on both
-200 and 503. Uptime measures the current worker's lifetime, not the entire deployment.
+The same ID is sent in `X-Request-ID`. Unexpected exceptions produce a generic 500 while details stay in server logs. `/health/` returns service status, database connectivity, and current worker uptime; a failed database check returns HTTP 503. Uptime is per process, not for the whole deployment.
 
-## Developer checks
+## Developer checks and CI
 
-Use Python 3.12 in a virtual environment and install `requirements-dev.txt`.
-Set `DJANGO_SECRET_KEY` (at least 50 characters), `DJANGO_ALLOWED_HOSTS`, and PostgreSQL environment
-variables matching `.env.example`; set `POSTGRES_HOST=127.0.0.1` when connecting from the host.
-Host Python commands do not automatically read `.env`.
+Use Python 3.12, install `requirements-dev.txt`, and set a `DJANGO_SECRET_KEY` of at least 50 characters. For PostgreSQL, set `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, and `POSTGRES_PORT`. Host Python commands do not load `.env` automatically. `USE_SQLITE=true` permits a lightweight local run, but the locking guarantees require PostgreSQL.
 
 ```sh
 python -m pip install -r requirements-dev.txt
@@ -243,39 +158,6 @@ flake8 .
 pytest
 ```
 
-For a lightweight local test run only, explicitly set `USE_SQLITE=true`. PostgreSQL remains
-the default and CI uses a disposable PostgreSQL service and Django-created test database.
-SQLite verification does not establish PostgreSQL locking or concurrency correctness.
-The coverage gate includes branches and excludes generated migrations. Coverage measures executed
-code; endpoint and domain behavior tests must also be reviewed for meaningful assertions.
+`.github/workflows/ci.yml` runs on pushes and pull requests. The test job starts temporary PostgreSQL, lints, checks Django and migrations, validates the committed OpenAPI schema, and runs pytest with a combined statement/branch coverage gate of 80%. The dependent build job builds a non-root multi-stage Docker image, starts Compose, and smoke-tests health, schema, and Swagger pages. It does not publish an image or deploy a service; DockerHub publication is optional and not configured. See `docs/verification.md` for executed evidence and limitations.
 
-Tests cover every domain model and every CRUD endpoint family, both write methods, authenticated
-and unauthenticated access, owner isolation, validation and database constraints, shortages and
-transaction rollback, cancellation/fulfilment retries, health failure, token revocation, and errors.
-Four PostgreSQL-only tests use independent connections and synchronized threads to exercise competing
-allocations, duplicate retries, fulfilment versus cancellation, and stock adjustment versus allocation.
-See [verification notes](docs/verification.md) for actual executed results and environment limitations.
-
-## Deployment and submission
-
-The workflow builds and smoke-tests an image after tests pass. It does not push to a registry or
-deploy a service: no registry credentials or hosting environment was supplied.
-For production, supply secrets through a secret manager, configure allowed hosts and HTTPS at a
-trusted ingress, provide database backups and monitoring, and run migrations as a release step.
-When using `REQUIRE_HTTPS=true`, configure health probes and trusted proxy handling for your actual
-TLS topology; the bundled local HTTP health probe is for the default local stack.
-
-| Deliverable | Current location / status |
-| --- | --- |
-| GitHub repository | <https://github.com/theZoid9/halcyon-inventory-api> (private; grant the reviewer access) |
-| DockerHub image | Not published; optional |
-| CI pipeline | `.github/workflows/ci.yml` |
-| Swagger | `/api/docs/` when running |
-| OpenAPI | `docs/openapi.yaml` and `/api/schema/` |
-| Domain / index rationale | Implemented above; models in `core/models.py`, transactions in `core/services.py` |
-
-Design references: [Django 5.2 LTS](https://docs.djangoproject.com/en/5.2/releases/5.2/),
-[DRF token authentication](https://www.django-rest-framework.org/api-guide/authentication/),
-[DRF permissions](https://www.django-rest-framework.org/api-guide/permissions/).
-Database design references: [Django constraints](https://docs.djangoproject.com/en/5.2/ref/models/constraints/)
-and [row locking](https://docs.djangoproject.com/en/5.2/ref/models/querysets/#select-for-update).
+For a production deployment, supply secrets from a secret manager, configure HTTPS and allowed hosts, back up PostgreSQL, monitor failed health checks, and run migrations as a release step. With `REQUIRE_HTTPS=true`, adjust health probes and proxy handling for the actual TLS topology.

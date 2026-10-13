@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
   migrate:
     build: .
-    image: halcyon-service:local
+    image: halcyon-ticketing:local
     env_file: .env
     environment:
       POSTGRES_HOST: db
@@ -26,7 +26,7 @@ services:
         condition: service_healthy
   app:
     build: .
-    image: halcyon-service:local
+    image: halcyon-ticketing:local
     env_file: .env
     environment:
       POSTGRES_HOST: db
