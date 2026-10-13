@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Halcyon Inventory & Supply Chain Fulfilment API
+  title: Halcyon Event Ticketing & Seat Reservation API
   version: 1.0.0
 paths:
   /api/auth/login/:
@@ -117,9 +117,709 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/orders/:
+  /api/event-seats/:
     get:
-      operationId: api_orders_list
+      operationId: api_event_seats_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEventSeatList'
+          description: ''
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: api_event_seats_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventSeatRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EventSeatRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EventSeatRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventSeat'
+          description: ''
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource state or relationship conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/event-seats/{id}/:
+    get:
+      operationId: api_event_seats_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this event seat.
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventSeat'
+          description: ''
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: api_event_seats_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this event seat.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventSeatRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EventSeatRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EventSeatRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventSeat'
+          description: ''
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource state or relationship conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: api_event_seats_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this event seat.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEventSeatRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEventSeatRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEventSeatRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventSeat'
+          description: ''
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource state or relationship conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: api_event_seats_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this event seat.
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource state or relationship conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/events/:
+    get:
+      operationId: api_events_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEventList'
+          description: ''
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: api_events_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EventRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EventRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource state or relationship conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/events/{id}/:
+    get:
+      operationId: api_events_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this event.
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: api_events_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this event.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EventRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EventRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource state or relationship conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: api_events_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this event.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEventRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEventRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEventRequest'
+      security:
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource state or relationship conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: api_events_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this event.
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Resource state or relationship conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/reservations/:
+    get:
+      operationId: api_reservations_list
       parameters:
       - name: page
         required: false
@@ -132,10 +832,10 @@ paths:
         schema:
           type: string
           enum:
-          - allocated
           - cancelled
-          - draft
-          - fulfilled
+          - confirmed
+          - expired
+          - held
       tags:
       - api
       security:
@@ -145,7 +845,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedOrderList'
+                $ref: '#/components/schemas/PaginatedReservationList'
           description: ''
         '400':
           description: Invalid request
@@ -178,20 +878,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     post:
-      operationId: api_orders_create
+      operationId: api_reservations_create
       tags:
       - api
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OrderRequest'
+              $ref: '#/components/schemas/ReservationRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/OrderRequest'
+              $ref: '#/components/schemas/ReservationRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/OrderRequest'
+              $ref: '#/components/schemas/ReservationRequest'
         required: true
       security:
       - tokenAuth: []
@@ -200,7 +900,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Order'
+                $ref: '#/components/schemas/Reservation'
           description: ''
         '400':
           description: Invalid request
@@ -238,15 +938,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/orders/{id}/:
+  /api/reservations/{id}/:
     get:
-      operationId: api_orders_retrieve
+      operationId: api_reservations_retrieve
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this order.
+        description: A unique integer value identifying this reservation.
         required: true
       tags:
       - api
@@ -257,7 +957,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Order'
+                $ref: '#/components/schemas/Reservation'
           description: ''
         '400':
           description: Invalid request
@@ -290,13 +990,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     put:
-      operationId: api_orders_update
+      operationId: api_reservations_update
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this order.
+        description: A unique integer value identifying this reservation.
         required: true
       tags:
       - api
@@ -304,13 +1004,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OrderRequest'
+              $ref: '#/components/schemas/ReservationRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/OrderRequest'
+              $ref: '#/components/schemas/ReservationRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/OrderRequest'
+              $ref: '#/components/schemas/ReservationRequest'
         required: true
       security:
       - tokenAuth: []
@@ -319,7 +1019,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Order'
+                $ref: '#/components/schemas/Reservation'
           description: ''
         '400':
           description: Invalid request
@@ -358,13 +1058,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     patch:
-      operationId: api_orders_partial_update
+      operationId: api_reservations_partial_update
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this order.
+        description: A unique integer value identifying this reservation.
         required: true
       tags:
       - api
@@ -372,13 +1072,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedOrderRequest'
+              $ref: '#/components/schemas/PatchedReservationRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedOrderRequest'
+              $ref: '#/components/schemas/PatchedReservationRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedOrderRequest'
+              $ref: '#/components/schemas/PatchedReservationRequest'
       security:
       - tokenAuth: []
       responses:
@@ -386,7 +1086,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Order'
+                $ref: '#/components/schemas/Reservation'
           description: ''
         '400':
           description: Invalid request
@@ -425,13 +1125,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     delete:
-      operationId: api_orders_destroy
+      operationId: api_reservations_destroy
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this order.
+        description: A unique integer value identifying this reservation.
         required: true
       tags:
       - api
@@ -476,15 +1176,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/orders/{id}/allocate/:
+  /api/reservations/{id}/cancel/:
     post:
-      operationId: api_orders_allocate_create
+      operationId: api_reservations_cancel_create
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this order.
+        description: A unique integer value identifying this reservation.
         required: true
       tags:
       - api
@@ -495,7 +1195,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Order'
+                $ref: '#/components/schemas/Reservation'
           description: ''
         '400':
           description: Invalid request
@@ -533,15 +1233,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/orders/{id}/cancel/:
+  /api/reservations/{id}/confirm/:
     post:
-      operationId: api_orders_cancel_create
+      operationId: api_reservations_confirm_create
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this order.
+        description: A unique integer value identifying this reservation.
         required: true
       tags:
       - api
@@ -552,7 +1252,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Order'
+                $ref: '#/components/schemas/Reservation'
           description: ''
         '400':
           description: Invalid request
@@ -590,66 +1290,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/orders/{id}/fulfil/:
-    post:
-      operationId: api_orders_fulfil_create
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this order.
-        required: true
-      tags:
-      - api
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Order'
-          description: ''
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Resource state or relationship conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/products/:
+  /api/seats/:
     get:
-      operationId: api_products_list
+      operationId: api_seats_list
       parameters:
       - name: page
         required: false
@@ -666,7 +1309,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedProductList'
+                $ref: '#/components/schemas/PaginatedSeatList'
           description: ''
         '400':
           description: Invalid request
@@ -699,20 +1342,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     post:
-      operationId: api_products_create
+      operationId: api_seats_create
       tags:
       - api
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProductRequest'
+              $ref: '#/components/schemas/SeatRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/ProductRequest'
+              $ref: '#/components/schemas/SeatRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/ProductRequest'
+              $ref: '#/components/schemas/SeatRequest'
         required: true
       security:
       - tokenAuth: []
@@ -721,7 +1364,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Product'
+                $ref: '#/components/schemas/Seat'
           description: ''
         '400':
           description: Invalid request
@@ -759,15 +1402,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/products/{id}/:
+  /api/seats/{id}/:
     get:
-      operationId: api_products_retrieve
+      operationId: api_seats_retrieve
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this product.
+        description: A unique integer value identifying this seat.
         required: true
       tags:
       - api
@@ -778,7 +1421,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Product'
+                $ref: '#/components/schemas/Seat'
           description: ''
         '400':
           description: Invalid request
@@ -811,13 +1454,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     put:
-      operationId: api_products_update
+      operationId: api_seats_update
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this product.
+        description: A unique integer value identifying this seat.
         required: true
       tags:
       - api
@@ -825,13 +1468,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProductRequest'
+              $ref: '#/components/schemas/SeatRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/ProductRequest'
+              $ref: '#/components/schemas/SeatRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/ProductRequest'
+              $ref: '#/components/schemas/SeatRequest'
         required: true
       security:
       - tokenAuth: []
@@ -840,7 +1483,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Product'
+                $ref: '#/components/schemas/Seat'
           description: ''
         '400':
           description: Invalid request
@@ -879,13 +1522,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     patch:
-      operationId: api_products_partial_update
+      operationId: api_seats_partial_update
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this product.
+        description: A unique integer value identifying this seat.
         required: true
       tags:
       - api
@@ -893,13 +1536,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedProductRequest'
+              $ref: '#/components/schemas/PatchedSeatRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedProductRequest'
+              $ref: '#/components/schemas/PatchedSeatRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedProductRequest'
+              $ref: '#/components/schemas/PatchedSeatRequest'
       security:
       - tokenAuth: []
       responses:
@@ -907,7 +1550,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Product'
+                $ref: '#/components/schemas/Seat'
           description: ''
         '400':
           description: Invalid request
@@ -946,713 +1589,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     delete:
-      operationId: api_products_destroy
+      operationId: api_seats_destroy
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this product.
-        required: true
-      tags:
-      - api
-      security:
-      - tokenAuth: []
-      responses:
-        '204':
-          description: No response body
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Resource state or relationship conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/stock/:
-    get:
-      operationId: api_stock_list
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      tags:
-      - api
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedStockList'
-          description: ''
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    post:
-      operationId: api_stock_create
-      tags:
-      - api
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/StockRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/StockRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/StockRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Stock'
-          description: ''
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Resource state or relationship conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/stock/{id}/:
-    get:
-      operationId: api_stock_retrieve
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this stock.
-        required: true
-      tags:
-      - api
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Stock'
-          description: ''
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    put:
-      operationId: api_stock_update
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this stock.
-        required: true
-      tags:
-      - api
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/StockRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/StockRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/StockRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Stock'
-          description: ''
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Resource state or relationship conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      operationId: api_stock_partial_update
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this stock.
-        required: true
-      tags:
-      - api
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedStockRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/PatchedStockRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/PatchedStockRequest'
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Stock'
-          description: ''
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Resource state or relationship conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      operationId: api_stock_destroy
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this stock.
-        required: true
-      tags:
-      - api
-      security:
-      - tokenAuth: []
-      responses:
-        '204':
-          description: No response body
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Resource state or relationship conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/suppliers/:
-    get:
-      operationId: api_suppliers_list
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      tags:
-      - api
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaginatedSupplierList'
-          description: ''
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    post:
-      operationId: api_suppliers_create
-      tags:
-      - api
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SupplierRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/SupplierRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/SupplierRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Supplier'
-          description: ''
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Resource state or relationship conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/suppliers/{id}/:
-    get:
-      operationId: api_suppliers_retrieve
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this supplier.
-        required: true
-      tags:
-      - api
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Supplier'
-          description: ''
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    put:
-      operationId: api_suppliers_update
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this supplier.
-        required: true
-      tags:
-      - api
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SupplierRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/SupplierRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/SupplierRequest'
-        required: true
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Supplier'
-          description: ''
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Resource state or relationship conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      operationId: api_suppliers_partial_update
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this supplier.
-        required: true
-      tags:
-      - api
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedSupplierRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/PatchedSupplierRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/PatchedSupplierRequest'
-      security:
-      - tokenAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Supplier'
-          description: ''
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Authentication required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Permission denied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Resource state or relationship conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      operationId: api_suppliers_destroy
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: integer
-        description: A unique integer value identifying this supplier.
+        description: A unique integer value identifying this seat.
         required: true
       tags:
       - api
@@ -2047,9 +1990,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/warehouses/:
+  /api/venues/:
     get:
-      operationId: api_warehouses_list
+      operationId: api_venues_list
       parameters:
       - name: page
         required: false
@@ -2066,7 +2009,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedWarehouseList'
+                $ref: '#/components/schemas/PaginatedVenueList'
           description: ''
         '400':
           description: Invalid request
@@ -2099,20 +2042,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     post:
-      operationId: api_warehouses_create
+      operationId: api_venues_create
       tags:
       - api
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/WarehouseRequest'
+              $ref: '#/components/schemas/VenueRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/WarehouseRequest'
+              $ref: '#/components/schemas/VenueRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/WarehouseRequest'
+              $ref: '#/components/schemas/VenueRequest'
         required: true
       security:
       - tokenAuth: []
@@ -2121,7 +2064,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Warehouse'
+                $ref: '#/components/schemas/Venue'
           description: ''
         '400':
           description: Invalid request
@@ -2159,15 +2102,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/warehouses/{id}/:
+  /api/venues/{id}/:
     get:
-      operationId: api_warehouses_retrieve
+      operationId: api_venues_retrieve
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this warehouse.
+        description: A unique integer value identifying this venue.
         required: true
       tags:
       - api
@@ -2178,7 +2121,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Warehouse'
+                $ref: '#/components/schemas/Venue'
           description: ''
         '400':
           description: Invalid request
@@ -2211,13 +2154,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     put:
-      operationId: api_warehouses_update
+      operationId: api_venues_update
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this warehouse.
+        description: A unique integer value identifying this venue.
         required: true
       tags:
       - api
@@ -2225,13 +2168,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/WarehouseRequest'
+              $ref: '#/components/schemas/VenueRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/WarehouseRequest'
+              $ref: '#/components/schemas/VenueRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/WarehouseRequest'
+              $ref: '#/components/schemas/VenueRequest'
         required: true
       security:
       - tokenAuth: []
@@ -2240,7 +2183,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Warehouse'
+                $ref: '#/components/schemas/Venue'
           description: ''
         '400':
           description: Invalid request
@@ -2279,13 +2222,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     patch:
-      operationId: api_warehouses_partial_update
+      operationId: api_venues_partial_update
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this warehouse.
+        description: A unique integer value identifying this venue.
         required: true
       tags:
       - api
@@ -2293,13 +2236,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedWarehouseRequest'
+              $ref: '#/components/schemas/PatchedVenueRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedWarehouseRequest'
+              $ref: '#/components/schemas/PatchedVenueRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedWarehouseRequest'
+              $ref: '#/components/schemas/PatchedVenueRequest'
       security:
       - tokenAuth: []
       responses:
@@ -2307,7 +2250,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Warehouse'
+                $ref: '#/components/schemas/Venue'
           description: ''
         '400':
           description: Invalid request
@@ -2346,13 +2289,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     delete:
-      operationId: api_warehouses_destroy
+      operationId: api_venues_destroy
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this warehouse.
+        description: A unique integer value identifying this venue.
         required: true
       tags:
       - api
@@ -2419,6 +2362,122 @@ paths:
           description: ''
 components:
   schemas:
+    Event:
+      type: object
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        venue:
+          type: integer
+        title:
+          type: string
+          maxLength: 180
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/EventStatusEnum'
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - ends_at
+      - id
+      - starts_at
+      - title
+      - venue
+    EventRequest:
+      type: object
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
+      properties:
+        venue:
+          type: integer
+        title:
+          type: string
+          minLength: 1
+          maxLength: 180
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/EventStatusEnum'
+        description:
+          type: string
+      required:
+      - ends_at
+      - starts_at
+      - title
+      - venue
+    EventSeat:
+      type: object
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        event:
+          type: integer
+        seat:
+          type: integer
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_available:
+          type: boolean
+        is_claimed:
+          type: boolean
+          readOnly: true
+      required:
+      - event
+      - id
+      - is_claimed
+      - price
+      - seat
+    EventSeatRequest:
+      type: object
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
+      properties:
+        event:
+          type: integer
+        seat:
+          type: integer
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_available:
+          type: boolean
+      required:
+      - event
+      - price
+      - seat
+    EventStatusEnum:
+      enum:
+      - draft
+      - published
+      - cancelled
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `published` - Published
+        * `cancelled` - Cancelled
     Health:
       type: object
       properties:
@@ -2446,105 +2505,7 @@ components:
       required:
       - password
       - username
-    Order:
-      type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        owner:
-          type: integer
-          readOnly: true
-        warehouse:
-          type: integer
-        status:
-          type: string
-          readOnly: true
-        reference:
-          type: string
-          maxLength: 120
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/OrderLine'
-        total:
-          type: string
-          readOnly: true
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-      required:
-      - created_at
-      - id
-      - items
-      - owner
-      - status
-      - total
-      - updated_at
-      - warehouse
-    OrderLine:
-      type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        product:
-          type: integer
-        quantity:
-          type: integer
-          maximum: 2147483647
-          minimum: 1
-        unit_price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          readOnly: true
-      required:
-      - id
-      - product
-      - quantity
-      - unit_price
-    OrderLineRequest:
-      type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
-      properties:
-        product:
-          type: integer
-        quantity:
-          type: integer
-          maximum: 2147483647
-          minimum: 1
-      required:
-      - product
-      - quantity
-    OrderRequest:
-      type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
-      properties:
-        warehouse:
-          type: integer
-        reference:
-          type: string
-          maxLength: 120
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/OrderLineRequest'
-      required:
-      - items
-      - warehouse
-    PaginatedOrderList:
+    PaginatedEventList:
       type: object
       required:
       - count
@@ -2566,8 +2527,8 @@ components:
         results:
           type: array
           items:
-            $ref: '#/components/schemas/Order'
-    PaginatedProductList:
+            $ref: '#/components/schemas/Event'
+    PaginatedEventSeatList:
       type: object
       required:
       - count
@@ -2589,8 +2550,8 @@ components:
         results:
           type: array
           items:
-            $ref: '#/components/schemas/Product'
-    PaginatedStockList:
+            $ref: '#/components/schemas/EventSeat'
+    PaginatedReservationList:
       type: object
       required:
       - count
@@ -2612,8 +2573,8 @@ components:
         results:
           type: array
           items:
-            $ref: '#/components/schemas/Stock'
-    PaginatedSupplierList:
+            $ref: '#/components/schemas/Reservation'
+    PaginatedSeatList:
       type: object
       required:
       - count
@@ -2635,7 +2596,7 @@ components:
         results:
           type: array
           items:
-            $ref: '#/components/schemas/Supplier'
+            $ref: '#/components/schemas/Seat'
     PaginatedUserList:
       type: object
       required:
@@ -2659,7 +2620,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/User'
-    PaginatedWarehouseList:
+    PaginatedVenueList:
       type: object
       required:
       - count
@@ -2681,72 +2642,77 @@ components:
         results:
           type: array
           items:
-            $ref: '#/components/schemas/Warehouse'
-    PatchedOrderRequest:
+            $ref: '#/components/schemas/Venue'
+    PatchedEventRequest:
       type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
       properties:
-        warehouse:
+        venue:
           type: integer
-        reference:
+        title:
           type: string
-          maxLength: 120
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/OrderLineRequest'
-    PatchedProductRequest:
+          minLength: 1
+          maxLength: 180
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/EventStatusEnum'
+        description:
+          type: string
+    PatchedEventSeatRequest:
       type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
       properties:
-        sku:
-          type: string
-          minLength: 1
-          pattern: ^[A-Z0-9][A-Z0-9_-]*$
-          maxLength: 64
-        name:
-          type: string
-          minLength: 1
-          maxLength: 160
-        unit_price:
+        event:
+          type: integer
+        seat:
+          type: integer
+        price:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-        is_active:
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        is_available:
           type: boolean
-        suppliers:
+    PatchedReservationRequest:
+      type: object
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
+      properties:
+        event:
+          type: integer
+        seats:
           type: array
           items:
             type: integer
-    PatchedStockRequest:
+        reference:
+          type: string
+          maxLength: 80
+    PatchedSeatRequest:
       type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
       properties:
-        warehouse:
+        venue:
           type: integer
-        product:
-          type: integer
-        quantity:
-          type: integer
-          maximum: 2147483647
-          minimum: 0
-    PatchedSupplierRequest:
-      type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
-      properties:
-        name:
+        section:
           type: string
           minLength: 1
-          maxLength: 120
-        email:
+          maxLength: 50
+        row:
           type: string
-          format: email
           minLength: 1
-          maxLength: 254
+          maxLength: 20
+        number:
+          type: integer
+          minimum: 1
+        is_active:
+          type: boolean
     PatchedUserRequest:
       type: object
       properties:
@@ -2775,164 +2741,173 @@ components:
           title: Active
           description: Designates whether this user should be treated as active. Unselect
             this instead of deleting accounts.
-    PatchedWarehouseRequest:
+    PatchedVenueRequest:
       type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
       properties:
-        code:
-          type: string
-          minLength: 1
-          pattern: ^[A-Z0-9][A-Z0-9_-]*$
-          maxLength: 32
         name:
           type: string
           minLength: 1
-          maxLength: 120
+          maxLength: 160
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
         address:
           type: string
           minLength: 1
-          maxLength: 500
-    Product:
+          maxLength: 255
+    Reservation:
       type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
       properties:
         id:
           type: integer
           readOnly: true
-        sku:
-          type: string
-          pattern: ^[A-Z0-9][A-Z0-9_-]*$
-          maxLength: 64
-        name:
-          type: string
-          maxLength: 160
-        unit_price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-        suppliers:
+        owner:
+          type: integer
+          readOnly: true
+        event:
+          type: integer
+        seats:
           type: array
           items:
             type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReservationSeat'
+          readOnly: true
+        total:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ReservationStatusEnum'
+          readOnly: true
+        hold_expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+        reference:
+          type: string
+          maxLength: 80
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
       required:
+      - created_at
+      - event
+      - hold_expires_at
       - id
-      - name
-      - sku
-      - unit_price
-    ProductRequest:
+      - items
+      - owner
+      - seats
+      - status
+      - total
+      - updated_at
+    ReservationRequest:
       type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
       properties:
-        sku:
-          type: string
-          minLength: 1
-          pattern: ^[A-Z0-9][A-Z0-9_-]*$
-          maxLength: 64
-        name:
-          type: string
-          minLength: 1
-          maxLength: 160
-        unit_price:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-        is_active:
-          type: boolean
-        suppliers:
+        event:
+          type: integer
+        seats:
           type: array
           items:
             type: integer
+        reference:
+          type: string
+          maxLength: 80
       required:
-      - name
-      - sku
+      - event
+      - seats
+    ReservationSeat:
+      type: object
+      properties:
+        event_seat:
+          type: integer
+          readOnly: true
+        unit_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+      required:
+      - event_seat
       - unit_price
-    Stock:
+    ReservationStatusEnum:
+      enum:
+      - held
+      - confirmed
+      - cancelled
+      - expired
+      type: string
+      description: |-
+        * `held` - Held
+        * `confirmed` - Confirmed
+        * `cancelled` - Cancelled
+        * `expired` - Expired
+    Seat:
       type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
       properties:
         id:
           type: integer
           readOnly: true
-        warehouse:
+        venue:
           type: integer
-        product:
-          type: integer
-        quantity:
-          type: integer
-          maximum: 2147483647
-          minimum: 0
-        reserved:
-          type: integer
-          readOnly: true
-        available:
-          type: integer
-          readOnly: true
-      required:
-      - available
-      - id
-      - product
-      - quantity
-      - reserved
-      - warehouse
-    StockRequest:
-      type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
-      properties:
-        warehouse:
-          type: integer
-        product:
-          type: integer
-        quantity:
-          type: integer
-          maximum: 2147483647
-          minimum: 0
-      required:
-      - product
-      - quantity
-      - warehouse
-    Supplier:
-      type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
-      properties:
-        id:
-          type: integer
-          readOnly: true
-        name:
+        section:
           type: string
-          maxLength: 120
-        email:
+          maxLength: 50
+        row:
           type: string
-          format: email
-          maxLength: 254
+          maxLength: 20
+        number:
+          type: integer
+          minimum: 1
+        is_active:
+          type: boolean
       required:
-      - email
       - id
-      - name
-    SupplierRequest:
+      - number
+      - row
+      - section
+      - venue
+    SeatRequest:
       type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
       properties:
-        name:
+        venue:
+          type: integer
+        section:
           type: string
           minLength: 1
-          maxLength: 120
-        email:
+          maxLength: 50
+        row:
           type: string
-          format: email
           minLength: 1
-          maxLength: 254
+          maxLength: 20
+        number:
+          type: integer
+          minimum: 1
+        is_active:
+          type: boolean
       required:
-      - email
-      - name
+      - number
+      - row
+      - section
+      - venue
     Token:
       type: object
       properties:
@@ -3000,50 +2975,48 @@ components:
       required:
       - password
       - username
-    Warehouse:
+    Venue:
       type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
       properties:
         id:
           type: integer
           readOnly: true
-        code:
-          type: string
-          pattern: ^[A-Z0-9][A-Z0-9_-]*$
-          maxLength: 32
         name:
           type: string
-          maxLength: 120
+          maxLength: 160
+        city:
+          type: string
+          maxLength: 100
         address:
           type: string
-          maxLength: 500
+          maxLength: 255
       required:
       - address
-      - code
+      - city
       - id
       - name
-    WarehouseRequest:
+    VenueRequest:
       type: object
-      description: Reject unknown/read-only input instead of silently ignoring state
-        overrides.
+      description: Reject unknown and server-controlled fields instead of silently
+        ignoring them.
       properties:
-        code:
-          type: string
-          minLength: 1
-          pattern: ^[A-Z0-9][A-Z0-9_-]*$
-          maxLength: 32
         name:
           type: string
           minLength: 1
-          maxLength: 120
+          maxLength: 160
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
         address:
           type: string
           minLength: 1
-          maxLength: 500
+          maxLength: 255
       required:
       - address
-      - code
+      - city
       - name
     ErrorResponse:
       type: object
