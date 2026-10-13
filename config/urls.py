@@ -4,15 +4,15 @@ from rest_framework.routers import DefaultRouter
 
 from core.auth import LoginView, LogoutView, UserViewSet
 from core.health import HealthView
-from core.views import OrderViewSet, ProductViewSet, StockViewSet, SupplierViewSet, WarehouseViewSet
+from core.views import EventSeatViewSet, EventViewSet, ReservationViewSet, SeatViewSet, VenueViewSet
 
 router = DefaultRouter()
 router.register("users", UserViewSet)
-router.register("suppliers", SupplierViewSet)
-router.register("products", ProductViewSet)
-router.register("warehouses", WarehouseViewSet)
-router.register("stock", StockViewSet)
-router.register("orders", OrderViewSet)
+router.register("venues", VenueViewSet)
+router.register("seats", SeatViewSet)
+router.register("events", EventViewSet)
+router.register("event-seats", EventSeatViewSet)
+router.register("reservations", ReservationViewSet)
 
 urlpatterns = [
     path("health/", HealthView.as_view(), name="health"),

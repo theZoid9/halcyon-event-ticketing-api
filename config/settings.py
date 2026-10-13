@@ -72,7 +72,7 @@ REST_FRAMEWORK = {
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
 }
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Halcyon Inventory & Supply Chain Fulfilment API",
+    "TITLE": "Halcyon Event Ticketing & Seat Reservation API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SWAGGER_UI_DIST": "SIDECAR",
