@@ -64,7 +64,7 @@ jobs:
           context: .
           push: false
           load: true
-          tags: halcyon-service:local
+          tags: halcyon-ticketing:local
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Start stack and verify container health
