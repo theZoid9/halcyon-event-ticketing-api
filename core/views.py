@@ -2,60 +2,80 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from core import services
-from core.models import Order, Product, Stock, Supplier, Warehouse
+from core.models import Event, EventSeat, Reservation, Seat, Venue
 from core.permissions import AdminWriteAuthenticatedRead
 from core.serializers import (
-    OrderSerializer,
-    ProductSerializer,
-    StockSerializer,
-    SupplierSerializer,
-    WarehouseSerializer,
+    EventSeatSerializer,
+    EventSerializer,
+    ReservationSerializer,
+    SeatSerializer,
+    VenueSerializer,
 )
 
 
-class SupplierViewSet(viewsets.ModelViewSet):
-    queryset = Supplier.objects.order_by("id")
-    serializer_class = SupplierSerializer
+class VenueViewSet(viewsets.ModelViewSet):
+    queryset = Venue.objects.order_by("id")
+    serializer_class = VenueSerializer
     permission_classes = [AdminWriteAuthenticatedRead]
 
 
-class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.prefetch_related("suppliers").order_by("id")
-    serializer_class = ProductSerializer
+class SeatViewSet(viewsets.ModelViewSet):
+    queryset = Seat.objects.select_related("venue").order_by("id")
+    serializer_class = SeatSerializer
     permission_classes = [AdminWriteAuthenticatedRead]
 
 
-class WarehouseViewSet(viewsets.ModelViewSet):
-    queryset = Warehouse.objects.order_by("id")
-    serializer_class = WarehouseSerializer
+class EventViewSet(viewsets.ModelViewSet):
+    serializer_class = EventSerializer
     permission_classes = [AdminWriteAuthenticatedRead]
-
-
-class StockViewSet(viewsets.ModelViewSet):
-    queryset = Stock.objects.select_related("warehouse", "product").order_by("id")
-    serializer_class = StockSerializer
-    permission_classes = [AdminWriteAuthenticatedRead]
-
-    def perform_destroy(self, instance):
-        services.delete_stock(instance.pk)
-
-
-@extend_schema_view(
-    list=extend_schema(parameters=[OpenApiParameter("status", str, enum=Order.Status.values)])
-)
-class OrderViewSet(viewsets.ModelViewSet):
-    serializer_class = OrderSerializer
-    queryset = Order.objects.all()
+    queryset = Event.objects.all()
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
-            return Order.objects.none()
+            return Event.objects.none()
+        queryset = Event.objects.select_related("venue").order_by("starts_at", "id")
+        if not self.request.user.is_staff:
+            queryset = queryset.filter(status=Event.Status.PUBLISHED)
+        return queryset
+
+
+class EventSeatViewSet(viewsets.ModelViewSet):
+    serializer_class = EventSeatSerializer
+    permission_classes = [AdminWriteAuthenticatedRead]
+    queryset = EventSeat.objects.all()
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return EventSeat.objects.none()
+        queryset = EventSeat.objects.select_related("event", "seat").order_by("id")
+        if not self.request.user.is_staff:
+            queryset = queryset.filter(event__status=Event.Status.PUBLISHED)
+        if self.action == "list" and "event" in self.request.query_params:
+            event_id = self.request.query_params["event"]
+            if not event_id.isdecimal():
+                raise ValidationError({"event": "Must be a positive event ID."})
+            queryset = queryset.filter(event_id=event_id)
+        return queryset
+
+    def perform_destroy(self, instance):
+        services.delete_event_seat(instance.pk)
+
+
+@extend_schema_view(
+    list=extend_schema(parameters=[OpenApiParameter("status", str, enum=Reservation.Status.values)])
+)
+class ReservationViewSet(viewsets.ModelViewSet):
+    serializer_class = ReservationSerializer
+    queryset = Reservation.objects.all()
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Reservation.objects.none()
         queryset = (
-            Order.objects.select_related("warehouse", "owner")
+            Reservation.objects.select_related("owner", "event")
             .prefetch_related("items")
             .order_by("-created_at", "-id")
         )
@@ -63,33 +83,27 @@ class OrderViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(owner=self.request.user)
         if self.action == "list" and "status" in self.request.query_params:
             status = self.request.query_params["status"]
-            if status not in Order.Status.values:
-                raise ValidationError({"status": "Invalid order status."})
+            if status not in Reservation.Status.values:
+                raise ValidationError({"status": "Invalid reservation status."})
             queryset = queryset.filter(status=status)
         return queryset
 
     def perform_destroy(self, instance):
-        services.delete_order(instance.pk)
+        services.delete_reservation(instance.pk)
 
     def change_status(self, target):
-        # Resolve ownership before obtaining locks; ownership is immutable.
-        order = self.get_object()
+        reservation = self.get_object()
         if self.request.data:
             raise ValidationError("This action accepts an empty request body.")
-        order = services.transition_order(order.pk, target)
-        return Response(self.get_serializer(order).data)
+        reservation = services.transition_reservation(reservation.pk, target)
+        return Response(self.get_serializer(reservation).data)
 
-    @extend_schema(request=None, responses={200: OrderSerializer})
+    @extend_schema(request=None, responses={200: ReservationSerializer})
     @action(detail=True, methods=["post"])
-    def allocate(self, request, pk=None):
-        return self.change_status(Order.Status.ALLOCATED)
+    def confirm(self, request, pk=None):
+        return self.change_status(Reservation.Status.CONFIRMED)
 
-    @extend_schema(request=None, responses={200: OrderSerializer})
-    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
-    def fulfil(self, request, pk=None):
-        return self.change_status(Order.Status.FULFILLED)
-
-    @extend_schema(request=None, responses={200: OrderSerializer})
+    @extend_schema(request=None, responses={200: ReservationSerializer})
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
-        return self.change_status(Order.Status.CANCELLED)
+        return self.change_status(Reservation.Status.CANCELLED)

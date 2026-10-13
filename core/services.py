@@ -1,144 +1,214 @@
-"""Transactional writes. Lock order: order, warehouse, then stock by product ID.
-
-Warehouse locking intentionally serializes stock mutations within a warehouse,
-including insertion/deletion of stock rows. All API stock writes use this module.
-"""
+from datetime import timedelta
 
 from django.db import transaction
-from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from core.errors import Conflict
-from core.models import Order, OrderLine, Stock, Warehouse
+from core.models import Event, EventSeat, Reservation, ReservationSeat
+
+HOLD_MINUTES = 15
+MAX_SEATS_PER_RESERVATION = 8
 
 
-def lock_order(order_id):
-    return get_object_or_404(Order.objects.select_for_update(), pk=order_id)
+def _lock_event(event_id):
+    return Event.objects.select_for_update().get(pk=event_id)
 
 
-def lock_warehouse(warehouse_id):
-    return get_object_or_404(Warehouse.objects.select_for_update(), pk=warehouse_id)
+def _expire_holds(event):
+    expired_ids = list(
+        Reservation.objects.filter(
+            event=event, status=Reservation.Status.HELD, hold_expires_at__lte=timezone.now()
+        ).values_list("id", flat=True)
+    )
+    if expired_ids:
+        EventSeat.objects.filter(event=event, reservation_id__in=expired_ids).update(
+            reservation=None
+        )
+        Reservation.objects.filter(id__in=expired_ids).update(status=Reservation.Status.EXPIRED)
 
 
-def require_draft(order):
-    if order.status != Order.Status.DRAFT:
-        raise Conflict("Only draft orders may be edited or deleted.")
+@transaction.atomic
+def expire_event_holds(event_id):
+    """Commit expiry independently, even if a later user action is rejected."""
+    event = _lock_event(event_id)
+    _expire_holds(event)
 
 
-def write_items(order, items):
-    OrderLine.objects.bulk_create(
+def _check_bookable(event):
+    if event.status != Event.Status.PUBLISHED or event.starts_at <= timezone.now():
+        raise Conflict("This event is not open for reservations.")
+
+
+def _claim_seats(event, reservation, seat_ids):
+    if not 1 <= len(seat_ids) <= MAX_SEATS_PER_RESERVATION or len(set(seat_ids)) != len(seat_ids):
+        raise ValidationError({"seats": "Select 1 to 8 distinct event seats."})
+    seats = list(
+        EventSeat.objects.select_for_update()
+        .select_related("seat")
+        .filter(event=event, pk__in=seat_ids)
+        .order_by("pk")
+    )
+    if len(seats) != len(seat_ids):
+        raise ValidationError({"seats": "Every selected seat must belong to the event."})
+    for seat in seats:
+        if not seat.is_available or not seat.seat.is_active or seat.reservation_id is not None:
+            raise Conflict(f"Event seat {seat.pk} is unavailable.")
+    ReservationSeat.objects.bulk_create(
         [
-            OrderLine(
-                order=order,
-                product=item["product"],
-                quantity=item["quantity"],
-                unit_price=item["product"].unit_price,
-            )
-            for item in items
+            ReservationSeat(reservation=reservation, event_seat=seat, unit_price=seat.price)
+            for seat in seats
         ]
     )
+    EventSeat.objects.filter(pk__in=seat_ids).update(reservation=reservation)
 
 
 @transaction.atomic
-def create_order(owner, data):
-    items = data.pop("items")
-    order = Order.objects.create(owner=owner, **data)
-    write_items(order, items)
-    return order
+def create_reservation(owner, data):
+    event = _lock_event(data["event"].pk)
+    _expire_holds(event)
+    _check_bookable(event)
+    seat_ids = [seat.pk for seat in data.pop("seats")]
+    reservation = Reservation.objects.create(
+        owner=owner,
+        event=event,
+        hold_expires_at=timezone.now() + timedelta(minutes=HOLD_MINUTES),
+        reference=data.get("reference", ""),
+    )
+    _claim_seats(event, reservation, seat_ids)
+    return reservation
+
+
+def update_reservation(reservation_id, data):
+    event_id = Reservation.objects.only("event_id").get(pk=reservation_id).event_id
+    expire_event_holds(event_id)
+    return _update_reservation_locked(reservation_id, event_id, data)
 
 
 @transaction.atomic
-def update_order(order_id, data):
-    order = lock_order(order_id)
-    require_draft(order)
-    items = data.pop("items", None)
-    for name, value in data.items():
-        setattr(order, name, value)
-    order.save()
-    if items is not None:
-        order.items.all().delete()
-        write_items(order, items)
-    return order
+def _update_reservation_locked(reservation_id, event_id, data):
+    event = _lock_event(event_id)
+    _expire_holds(event)
+    reservation = Reservation.objects.select_for_update().get(pk=reservation_id)
+    if reservation.status != Reservation.Status.HELD:
+        raise Conflict("Only an active hold can be edited.")
+    _check_bookable(event)
+    if "event" in data and data["event"].pk != event.pk:
+        raise ValidationError({"event": "The event cannot be changed."})
+    if "seats" in data:
+        seat_ids = [seat.pk for seat in data["seats"]]
+        EventSeat.objects.filter(event=event, reservation=reservation).update(reservation=None)
+        reservation.items.all().delete()
+        _claim_seats(event, reservation, seat_ids)
+    reservation.reference = data.get("reference", reservation.reference)
+    reservation.save(update_fields=["reference", "updated_at"])
+    return reservation
+
+
+def transition_reservation(reservation_id, target):
+    event_id = Reservation.objects.only("event_id").get(pk=reservation_id).event_id
+    expire_event_holds(event_id)
+    return _transition_reservation_locked(reservation_id, event_id, target)
 
 
 @transaction.atomic
-def delete_order(order_id):
-    order = lock_order(order_id)
-    require_draft(order)
-    order.delete()
+def _transition_reservation_locked(reservation_id, event_id, target):
+    event = _lock_event(event_id)
+    _expire_holds(event)
+    reservation = Reservation.objects.select_for_update().get(pk=reservation_id)
+    if reservation.status == target:
+        return reservation
+    if target == Reservation.Status.CONFIRMED:
+        _check_bookable(event)
+        if reservation.status != Reservation.Status.HELD:
+            raise Conflict("Only an active hold can be confirmed.")
+    elif target == Reservation.Status.CANCELLED:
+        if reservation.status not in (Reservation.Status.HELD, Reservation.Status.CONFIRMED):
+            raise Conflict("This reservation cannot be cancelled.")
+        if event.starts_at <= timezone.now():
+            raise Conflict("The event has already started.")
+        EventSeat.objects.filter(event=event, reservation=reservation).update(reservation=None)
+    else:
+        raise ValueError("Unsupported transition")
+    reservation.status = target
+    reservation.save(update_fields=["status", "updated_at"])
+    return reservation
+
+
+def delete_reservation(reservation_id):
+    event_id = Reservation.objects.only("event_id").get(pk=reservation_id).event_id
+    expire_event_holds(event_id)
+    _delete_reservation_locked(reservation_id, event_id)
 
 
 @transaction.atomic
-def transition_order(order_id, target):
-    order = lock_order(order_id)
-    if order.status == target:
-        return order
-    allowed = {
-        Order.Status.ALLOCATED: [Order.Status.DRAFT],
-        Order.Status.FULFILLED: [Order.Status.ALLOCATED],
-        Order.Status.CANCELLED: [Order.Status.DRAFT, Order.Status.ALLOCATED],
-    }
-    if order.status not in allowed.get(target, []):
-        raise Conflict(f"Cannot change {order.status} to {target}.")
-    lock_warehouse(order.warehouse_id)
-    items = list(order.items.select_related("product").order_by("product_id"))
-    if not items:
-        raise Conflict("An order must contain at least one item.")
-    stocks = {
-        stock.product_id: stock
-        for stock in Stock.objects.select_for_update()
-        .filter(warehouse_id=order.warehouse_id, product_id__in=[item.product_id for item in items])
-        .order_by("product_id")
-    }
-    for item in items:
-        stock = stocks.get(item.product_id)
-        if target == Order.Status.ALLOCATED:
-            if not item.product.is_active:
-                raise Conflict(f"Product {item.product_id} is inactive.")
-            if stock is None or stock.available < item.quantity:
-                raise Conflict(f"Insufficient available stock for product {item.product_id}.")
-            stock.reserved += item.quantity
-        elif order.status == Order.Status.ALLOCATED:
-            if stock is None or stock.reserved < item.quantity:
-                raise Conflict("Reserved stock is inconsistent; contact an administrator.")
-            stock.reserved -= item.quantity
-            if target == Order.Status.FULFILLED:
-                stock.quantity -= item.quantity
-        else:
-            continue  # Cancelling a draft does not touch stock.
-        stock.save(update_fields=["quantity", "reserved"])
-    order.status = target
-    order.save(update_fields=["status", "updated_at"])
-    return order
+def _delete_reservation_locked(reservation_id, event_id):
+    event = _lock_event(event_id)
+    _expire_holds(event)
+    reservation = Reservation.objects.select_for_update().get(pk=reservation_id)
+    if reservation.status != Reservation.Status.HELD:
+        raise Conflict("Only an active hold can be deleted; cancel a confirmed reservation.")
+    EventSeat.objects.filter(event=event, reservation=reservation).update(reservation=None)
+    reservation.delete()
 
 
 @transaction.atomic
-def create_stock(data):
-    lock_warehouse(data["warehouse"].pk)
-    return Stock.objects.create(**data)
+def update_event(event_id, data):
+    event = _lock_event(event_id)
+    if "venue" in data and data["venue"].pk != event.venue_id:
+        if event.event_seats.exists() or event.reservations.exists():
+            raise Conflict("The venue cannot change after seats or reservations exist.")
+    new_status = data.get("status", event.status)
+    if new_status != event.status:
+        if event.status == Event.Status.CANCELLED or new_status == Event.Status.DRAFT:
+            raise Conflict("This event status transition is not allowed.")
+        if new_status == Event.Status.PUBLISHED:
+            if event.status != Event.Status.DRAFT or not event.event_seats.exists():
+                raise Conflict("Add event seats before publishing.")
+        if new_status == Event.Status.CANCELLED:
+            if event.status != Event.Status.PUBLISHED:
+                raise Conflict("Only a published event can be cancelled.")
+            EventSeat.objects.filter(event=event).update(reservation=None)
+            Reservation.objects.filter(
+                event=event, status__in=[Reservation.Status.HELD, Reservation.Status.CONFIRMED]
+            ).update(status=Reservation.Status.CANCELLED)
+    for key, value in data.items():
+        setattr(event, key, value)
+    if event.ends_at <= event.starts_at:
+        raise ValidationError({"ends_at": "Must be after starts_at."})
+    event.save()
+    return event
 
 
 @transaction.atomic
-def update_stock(stock_id, data):
-    current = get_object_or_404(Stock, pk=stock_id)
-    lock_warehouse(current.warehouse_id)
-    stock = get_object_or_404(Stock.objects.select_for_update(), pk=stock_id)
-    for field in ["warehouse", "product"]:
-        if field in data and data[field].pk != getattr(stock, f"{field}_id"):
-            raise ValidationError({field: "Stock warehouse and product cannot be changed."})
-    quantity = data.get("quantity", stock.quantity)
-    if quantity < stock.reserved:
-        raise Conflict("Quantity cannot be less than reserved stock.")
-    stock.quantity = quantity
-    stock.save(update_fields=["quantity"])
-    return stock
+def create_event_seat(data):
+    event = _lock_event(data["event"].pk)
+    if data["seat"].venue_id != event.venue_id:
+        raise ValidationError({"seat": "Seat must belong to the event venue."})
+    return EventSeat.objects.create(**data)
 
 
 @transaction.atomic
-def delete_stock(stock_id):
-    current = get_object_or_404(Stock, pk=stock_id)
-    lock_warehouse(current.warehouse_id)
-    stock = get_object_or_404(Stock.objects.select_for_update(), pk=stock_id)
-    if stock.reserved:
-        raise Conflict("Stock with active reservations cannot be deleted.")
-    stock.delete()
+def update_event_seat(event_seat_id, data):
+    event_id = EventSeat.objects.only("event_id").get(pk=event_seat_id).event_id
+    _lock_event(event_id)
+    seat = EventSeat.objects.select_for_update().get(pk=event_seat_id)
+    if any(key in data and data[key].pk != getattr(seat, f"{key}_id") for key in ("event", "seat")):
+        raise ValidationError("Event and seat identity cannot change.")
+    if seat.reservation_id and data.get("is_available") is False:
+        raise Conflict("A claimed seat cannot be disabled.")
+    for key in ("price", "is_available"):
+        if key in data:
+            setattr(seat, key, data[key])
+    seat.save(update_fields=["price", "is_available"])
+    return seat
+
+
+@transaction.atomic
+def delete_event_seat(event_seat_id):
+    event_id = EventSeat.objects.only("event_id").get(pk=event_seat_id).event_id
+    _lock_event(event_id)
+    seat = EventSeat.objects.select_for_update().get(pk=event_seat_id)
+    if seat.reservation_id:
+        raise Conflict("A claimed seat cannot be deleted.")
+    seat.delete()
