@@ -119,6 +119,6 @@ def test_method_and_malformed_json_errors(auth_client):
     response = auth_client.get("/api/auth/logout/")
     assert response.status_code == 405
     assert response.data["error"]["code"] == "method_not_allowed"
-    response = auth_client.post("/api/orders/", "{invalid", content_type="application/json")
+    response = auth_client.post("/api/reservations/", "{invalid", content_type="application/json")
     assert response.status_code == 400
     assert response.data["error"]["code"] == "parse_error"

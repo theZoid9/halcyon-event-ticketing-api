@@ -1,33 +1,38 @@
-"""Real PostgreSQL transactions on independent connections, also run in CI."""
+"""PostgreSQL tests use independent connections and competing requests."""
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from threading import Barrier
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.db import close_old_connections, connection
+from django.utils import timezone
 
 from core import services
 from core.errors import Conflict
-from core.models import Order, OrderLine, Product, Stock, Warehouse
+from core.models import Event, EventSeat, Reservation, Seat, Venue
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
 @pytest.fixture
-def inventory():
+def setup_event():
     if connection.vendor != "postgresql":
         pytest.skip("Row-lock concurrency requires PostgreSQL; CI runs this test.")
-    user = get_user_model().objects.create_user("concurrent")
-    warehouse = Warehouse.objects.create(code="TEST", name="Test", address="Test")
-    product = Product.objects.create(sku="TEST", name="Test", unit_price=1)
-    stock = Stock.objects.create(warehouse=warehouse, product=product, quantity=5)
-    orders = []
-    for _ in range(2):
-        order = Order.objects.create(owner=user, warehouse=warehouse)
-        OrderLine.objects.create(order=order, product=product, quantity=4, unit_price=1)
-        orders.append(order)
-    return stock, orders
+    users = [get_user_model().objects.create_user(username=f"buyer{i}") for i in range(2)]
+    venue = Venue.objects.create(name="Test", city="Test", address="Test")
+    seat = Seat.objects.create(venue=venue, section="A", row="1", number=1)
+    starts = timezone.now() + timedelta(days=1)
+    event = Event.objects.create(
+        venue=venue,
+        title="Test",
+        starts_at=starts,
+        ends_at=starts + timedelta(hours=1),
+        status=Event.Status.PUBLISHED,
+    )
+    event_seat = EventSeat.objects.create(event=event, seat=seat, price="10.00")
+    return users, event, event_seat
 
 
 def parallel(calls):
@@ -36,7 +41,6 @@ def parallel(calls):
     def invoke(call):
         close_old_connections()
         try:
-            # Fail quickly if an implementation change introduces a deadlock.
             with connection.cursor() as cursor:
                 cursor.execute("SET lock_timeout = '5s'")
             barrier.wait(timeout=10)
@@ -52,55 +56,38 @@ def parallel(calls):
         return list(pool.map(invoke, calls))
 
 
-def test_competing_orders_cannot_oversell(inventory):
-    stock, orders = inventory
+def test_competing_buyers_cannot_claim_same_seat(setup_event):
+    users, event, seat = setup_event
     results = parallel(
         [
-            lambda oid=order.pk: services.transition_order(oid, Order.Status.ALLOCATED)
-            for order in orders
+            lambda user=user: services.create_reservation(
+                user, {"event": event, "seats": [seat], "reference": ""}
+            )
+            for user in users
         ]
     )
     assert sorted(results) == ["conflict", "ok"]
-    stock.refresh_from_db()
-    assert (stock.quantity, stock.reserved) == (5, 4)
-    assert Order.objects.filter(status="allocated").count() == 1
+    seat.refresh_from_db()
+    assert seat.reservation_id is not None
+    assert Reservation.objects.count() == 1
 
 
-def test_concurrent_retries_reserve_once(inventory):
-    stock, orders = inventory
-
-    def call():
-        return services.transition_order(orders[0].pk, Order.Status.ALLOCATED)
-
-    assert parallel([call, call]) == ["ok", "ok"]
-    stock.refresh_from_db()
-    assert stock.reserved == 4
-
-
-def test_fulfil_racing_cancel_never_double_releases(inventory):
-    stock, orders = inventory
-    services.transition_order(orders[0].pk, Order.Status.ALLOCATED)
+def test_cancel_racing_new_hold_is_consistent(setup_event):
+    users, event, seat = setup_event
+    old = services.create_reservation(users[0], {"event": event, "seats": [seat]})
     results = parallel(
         [
-            lambda: services.transition_order(orders[0].pk, Order.Status.FULFILLED),
-            lambda: services.transition_order(orders[0].pk, Order.Status.CANCELLED),
+            lambda: services.transition_reservation(old.pk, Reservation.Status.CANCELLED),
+            lambda: services.create_reservation(users[1], {"event": event, "seats": [seat]}),
         ]
     )
-    assert sorted(results) == ["conflict", "ok"]
-    stock.refresh_from_db()
-    orders[0].refresh_from_db()
-    assert stock.reserved == 0
-    assert stock.quantity == (1 if orders[0].status == "fulfilled" else 5)
-
-
-def test_stock_adjustment_racing_allocation(inventory):
-    stock, orders = inventory
-    results = parallel(
-        [
-            lambda: services.transition_order(orders[0].pk, Order.Status.ALLOCATED),
-            lambda: services.update_stock(stock.pk, {"quantity": 2}),
-        ]
+    assert results[0] == "ok"
+    assert results[1] in ("ok", "conflict")
+    seat.refresh_from_db()
+    old.refresh_from_db()
+    assert old.status == Reservation.Status.CANCELLED
+    assert seat.reservation_id in (
+        [None]
+        if results[1] == "conflict"
+        else list(Reservation.objects.exclude(pk=old.pk).values_list("pk", flat=True))
     )
-    assert sorted(results) == ["conflict", "ok"]
-    stock.refresh_from_db()
-    assert (stock.quantity, stock.reserved) in [(5, 4), (2, 0)]
