@@ -1,7 +1,5 @@
 # Halcyon Event Ticketing & Seat Reservation API
 
-**Ticket HS-2026-0872 · Even candidate-ID assignment**
-
 A Django REST API for venues, physical seats, events, event-specific seat prices, and attendee reservations. Standard users browse published events and reserve their own seats. Administrators manage the catalogue and users. PostgreSQL row locks prevent double-booking, and a 15-minute hold expires before another buyer claims a seat.
 
 ## Architecture and data model
